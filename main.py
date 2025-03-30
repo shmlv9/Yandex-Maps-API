@@ -1,5 +1,6 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QLabel, QWidget
+from PyQt6.QtWidgets import (QApplication, QLabel, QWidget,
+                             QComboBox, QVBoxLayout)
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import Qt
 from config import MIN_SPN, MAX_SPN, MIN_LON, MAX_LON, MIN_LAT, MAX_LAT, MOVE_STEP
@@ -12,18 +13,34 @@ class MapApp(QWidget):
         super().__init__()
         self.spn = [5, 5]
         self.lonlat = [30, 60]
+        self.theme = "light"
         self.map_api = YandexMapAPI(API_KEY_STATIC)
         self.init_ui()
 
     def init_ui(self):
         self.setWindowTitle('Yandex Maps')
-        self.setGeometry(100, 100, 600, 450)
-        self.label = QLabel(self)
-        self.label.resize(600, 450)
+        self.setGeometry(100, 100, 600, 500)
+
+        self.theme_box = QComboBox()
+        self.theme_box.addItems(["Светлая", "Тёмная"])
+        self.theme_box.currentTextChanged.connect(self.change_theme)
+
+        self.label = QLabel()
+        self.label.setFixedSize(600, 450)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.theme_box)
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+
+        self.update_map()
+
+    def change_theme(self, theme):
+        self.theme = 'light' if theme == 'Светлая' else 'dark'
         self.update_map()
 
     def update_map(self):
-        map_data = self.map_api.get_map(self.lonlat, self.spn)
+        map_data = self.map_api.get_map(self.lonlat, self.spn, self.theme)
         self.show_map(map_data)
 
     def show_map(self, map_data):

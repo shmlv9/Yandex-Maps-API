@@ -6,11 +6,12 @@ class YandexMapAPI:
         self.api_key = api_key
         self.base_url = "https://static-maps.yandex.ru/v1"
 
-    def get_map(self, lonlat, spn):
+    def get_map(self, lonlat, spn, theme="light"):
         params = {
             'll': ','.join(map(str, lonlat)),
             'spn': ','.join(map(str, spn)),
-            'apikey': self.api_key
+            'apikey': self.api_key,
+            'theme': theme
         }
         response = requests.get(self.base_url, params=params)
         if not response:
