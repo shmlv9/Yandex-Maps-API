@@ -1,11 +1,12 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QLabel, QWidget,
-                             QComboBox, QVBoxLayout)
+                             QComboBox, QVBoxLayout, QLineEdit,
+                             QPushButton, QHBoxLayout)
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import Qt
 from config import MIN_SPN, MAX_SPN, MIN_LON, MAX_LON, MIN_LAT, MAX_LAT, MOVE_STEP
-from map_api import YandexMapAPI
-from apikey import API_KEY_STATIC
+from map_api import YandexMapAPI, GeocoderAPI
+from apikey import API_KEY_STATIC, API_KEY_GEOCODER
 
 
 class MapApp(QWidget):
@@ -14,22 +15,37 @@ class MapApp(QWidget):
         self.spn = [5, 5]
         self.lonlat = [30, 60]
         self.theme = "light"
+        self.show_pt = False
         self.map_api = YandexMapAPI(API_KEY_STATIC)
+        self.geocode_api = GeocoderAPI(API_KEY_GEOCODER)
         self.init_ui()
 
     def init_ui(self):
         self.setWindowTitle('Yandex Maps')
-        self.setGeometry(100, 100, 600, 500)
+        self.setGeometry(100, 100, 600, 550)
 
         self.theme_box = QComboBox()
         self.theme_box.addItems(["Светлая", "Тёмная"])
         self.theme_box.currentTextChanged.connect(self.change_theme)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Введите адрес для поиска")
+        self.search_input.returnPressed.connect(self.search_location)
+        self.search_input.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+
+        self.search_button = QPushButton("Искать")
+        self.search_button.clicked.connect(self.search_location)
+
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(self.search_button)
 
         self.label = QLabel()
         self.label.setFixedSize(600, 450)
 
         layout = QVBoxLayout()
         layout.addWidget(self.theme_box)
+        layout.addLayout(search_layout)
         layout.addWidget(self.label)
         self.setLayout(layout)
 
@@ -39,8 +55,26 @@ class MapApp(QWidget):
         self.theme = 'light' if theme == 'Светлая' else 'dark'
         self.update_map()
 
+    def search_location(self):
+        search_text = self.search_input.text()
+        if search_text:
+            lon, lat, sizes = self.geocode_api.get_coordinates_and_sizes(search_text)
+            self.lonlat = [lon, lat]
+            self.spn = sizes
+            self.show_pt = True
+            map_data = self.map_api.get_map(
+                spn=sizes,
+                theme=self.theme,
+                pt=f"{self.lonlat[0]},{self.lonlat[1]},vkbkm" if self.show_pt else None,
+                mode='search')
+            self.show_map(map_data)
+
     def update_map(self):
-        map_data = self.map_api.get_map(self.lonlat, self.spn, self.theme)
+        map_data = self.map_api.get_map(
+            self.lonlat,
+            self.spn,
+            self.theme,
+            pt=f"{self.lonlat[0]},{self.lonlat[1]},vkbkm" if self.show_pt else None)
         self.show_map(map_data)
 
     def show_map(self, map_data):
@@ -49,20 +83,32 @@ class MapApp(QWidget):
         self.pixmap = QPixmap(image)
         self.label.setPixmap(self.pixmap)
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            if not self.search_input.geometry().contains(event.pos()):
+                self.search_input.clearFocus()
+                self.setFocus()
+                self.show_pt = False
+                self.update_map()
+
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Plus:
-            self.spn = [max(MIN_SPN, self.spn[0] * 0.5), max(MIN_SPN, self.spn[1] * 0.5)]
-        elif event.key() == Qt.Key.Key_Minus:
-            self.spn = [min(MAX_SPN, self.spn[0] * 2), min(MAX_SPN, self.spn[1] * 2)]
-        elif event.key() == Qt.Key.Key_Up:
-            self.lonlat[1] = min(MAX_LAT, self.lonlat[1] + self.spn[1] * MOVE_STEP)
-        elif event.key() == Qt.Key.Key_Down:
-            self.lonlat[1] = max(MIN_LAT, self.lonlat[1] - self.spn[1] * MOVE_STEP)
-        elif event.key() == Qt.Key.Key_Left:
-            self.lonlat[0] = max(MIN_LON, self.lonlat[0] - self.spn[0] * MOVE_STEP)
-        elif event.key() == Qt.Key.Key_Right:
-            self.lonlat[0] = min(MAX_LON, self.lonlat[0] + self.spn[0] * MOVE_STEP)
-        self.update_map()
+        if not self.search_input.hasFocus():
+            if event.key() == Qt.Key.Key_Plus:
+                self.spn = [max(MIN_SPN, self.spn[0] * 0.5), max(MIN_SPN, self.spn[1] * 0.5)]
+            elif event.key() == Qt.Key.Key_Minus:
+                self.spn = [min(MAX_SPN, self.spn[0] * 2), min(MAX_SPN, self.spn[1] * 2)]
+            elif event.key() == Qt.Key.Key_Up:
+                self.lonlat[1] = min(MAX_LAT, self.lonlat[1] + self.spn[1] * MOVE_STEP)
+            elif event.key() == Qt.Key.Key_Down:
+                self.lonlat[1] = max(MIN_LAT, self.lonlat[1] - self.spn[1] * MOVE_STEP)
+            elif event.key() == Qt.Key.Key_Left:
+                self.lonlat[0] = max(MIN_LON, self.lonlat[0] - self.spn[0] * MOVE_STEP)
+            elif event.key() == Qt.Key.Key_Right:
+                self.lonlat[0] = min(MAX_LON, self.lonlat[0] + self.spn[0] * MOVE_STEP)
+            self.show_pt = False
+            self.update_map()
+        else:
+            super().keyPressEvent(event)
 
 
 if __name__ == '__main__':
