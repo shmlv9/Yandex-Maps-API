@@ -39,7 +39,7 @@ class GeocoderAPI:
         self.api_key = api_key
         self.base_url = "https://geocode-maps.yandex.ru/v1/"
 
-    def get_coordinates_and_sizes(self, address):
+    def get_info(self, address):
         params = {
             'apikey': self.api_key,
             'geocode': address,
@@ -50,11 +50,16 @@ class GeocoderAPI:
             raise Exception(f"Ошибка запроса: {response.status_code} ({response.reason})")
 
         data = json.loads(response.text)
-        pos = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos']
+        feature = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']
+
+        pos = feature['Point']['pos']
         lon, lat = map(float, pos.split())
 
-        size = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['boundedBy']
+        full_address = feature['metaDataProperty']['GeocoderMetaData']['text']
+
+        size = feature['boundedBy']
         coords1 = size['Envelope']['lowerCorner'].split()
         coords2 = size['Envelope']['upperCorner'].split()
         sizes = [abs(float(coords1[0]) - float(coords2[0])), abs(float(coords1[1]) - float(coords2[1]))]
-        return lon, lat, sizes
+
+        return lon, lat, sizes, full_address

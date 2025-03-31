@@ -16,13 +16,14 @@ class MapApp(QWidget):
         self.lonlat = [30, 60]
         self.theme = "light"
         self.marker_coords = None
+        self.current_address = None
         self.map_api = YandexMapAPI(API_KEY_STATIC)
         self.geocode_api = GeocoderAPI(API_KEY_GEOCODER)
         self.init_ui()
 
     def init_ui(self):
         self.setWindowTitle('Yandex Maps')
-        self.setGeometry(100, 100, 600, 550)
+        self.setGeometry(100, 100, 600, 600)
 
         self.theme_box = QComboBox()
         self.theme_box.addItems(["Светлая", "Тёмная"])
@@ -47,16 +48,21 @@ class MapApp(QWidget):
         self.label = QLabel()
         self.label.setFixedSize(600, 450)
 
+        self.address_label = QLabel()
+
         layout = QVBoxLayout()
         layout.addWidget(self.theme_box)
         layout.addLayout(search_layout)
         layout.addWidget(self.label)
+        layout.addWidget(self.address_label)
         self.setLayout(layout)
 
         self.update_map()
 
     def clear_marker(self):
         self.marker_coords = None
+        self.current_address = None
+        self.address_label.setText('')
         self.update_map()
 
     def change_theme(self, theme):
@@ -66,10 +72,12 @@ class MapApp(QWidget):
     def search_location(self):
         search_text = self.search_input.text()
         if search_text:
-            lon, lat, sizes = self.geocode_api.get_coordinates_and_sizes(search_text)
+            lon, lat, sizes, address = self.geocode_api.get_info(search_text)
             self.lonlat = [lon, lat]
             self.spn = sizes
             self.marker_coords = [lon, lat]
+            self.current_address = address
+            self.address_label.setText(f"Адрес: {address}")
             map_data = self.map_api.get_map(
                 spn=sizes,
                 theme=self.theme,
