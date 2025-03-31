@@ -36,9 +36,13 @@ class MapApp(QWidget):
         self.search_button = QPushButton("Искать")
         self.search_button.clicked.connect(self.search_location)
 
+        self.remove_search_button = QPushButton("Сброс поиска")
+        self.remove_search_button.clicked.connect(self.clear_marker)
+
         search_layout = QHBoxLayout()
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.search_button)
+        search_layout.addWidget(self.remove_search_button)
 
         self.label = QLabel()
         self.label.setFixedSize(600, 450)
@@ -49,6 +53,10 @@ class MapApp(QWidget):
         layout.addWidget(self.label)
         self.setLayout(layout)
 
+        self.update_map()
+
+    def clear_marker(self):
+        self.marker_coords = None
         self.update_map()
 
     def change_theme(self, theme):
