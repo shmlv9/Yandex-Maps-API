@@ -15,7 +15,7 @@ class MapApp(QWidget):
         self.spn = [5, 5]
         self.lonlat = [30, 60]
         self.theme = "light"
-        self.show_pt = False
+        self.marker_coords = None
         self.map_api = YandexMapAPI(API_KEY_STATIC)
         self.geocode_api = GeocoderAPI(API_KEY_GEOCODER)
         self.init_ui()
@@ -61,20 +61,23 @@ class MapApp(QWidget):
             lon, lat, sizes = self.geocode_api.get_coordinates_and_sizes(search_text)
             self.lonlat = [lon, lat]
             self.spn = sizes
-            self.show_pt = True
+            self.marker_coords = [lon, lat]
             map_data = self.map_api.get_map(
                 spn=sizes,
                 theme=self.theme,
-                pt=f"{self.lonlat[0]},{self.lonlat[1]},vkbkm" if self.show_pt else None,
+                pt=f"{self.marker_coords[0]},{self.marker_coords[1]},vkbkm" if self.marker_coords else None,
                 mode='search')
             self.show_map(map_data)
 
     def update_map(self):
+        pt_param = f"{self.marker_coords[0]},{self.marker_coords[1]},vkbkm" if self.marker_coords else None
+
         map_data = self.map_api.get_map(
-            self.lonlat,
-            self.spn,
-            self.theme,
-            pt=f"{self.lonlat[0]},{self.lonlat[1]},vkbkm" if self.show_pt else None)
+            lonlat=self.lonlat,
+            spn=self.spn,
+            theme=self.theme,
+            pt=pt_param)
+
         self.show_map(map_data)
 
     def show_map(self, map_data):
@@ -88,8 +91,6 @@ class MapApp(QWidget):
             if not self.search_input.geometry().contains(event.pos()):
                 self.search_input.clearFocus()
                 self.setFocus()
-                self.show_pt = False
-                self.update_map()
 
     def keyPressEvent(self, event):
         if not self.search_input.hasFocus():
@@ -105,7 +106,6 @@ class MapApp(QWidget):
                 self.lonlat[0] = max(MIN_LON, self.lonlat[0] - self.spn[0] * MOVE_STEP)
             elif event.key() == Qt.Key.Key_Right:
                 self.lonlat[0] = min(MAX_LON, self.lonlat[0] + self.spn[0] * MOVE_STEP)
-            self.show_pt = False
             self.update_map()
         else:
             super().keyPressEvent(event)
