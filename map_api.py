@@ -56,10 +56,14 @@ class GeocoderAPI:
         lon, lat = map(float, pos.split())
 
         full_address = feature['metaDataProperty']['GeocoderMetaData']['text']
+        try:
+            postal_code = feature['metaDataProperty']['GeocoderMetaData']['Address']['postal_code']
+        except KeyError:
+            postal_code = 'Не указан'
 
         size = feature['boundedBy']
         coords1 = size['Envelope']['lowerCorner'].split()
         coords2 = size['Envelope']['upperCorner'].split()
         sizes = [abs(float(coords1[0]) - float(coords2[0])), abs(float(coords1[1]) - float(coords2[1]))]
 
-        return lon, lat, sizes, full_address
+        return lon, lat, sizes, full_address, postal_code

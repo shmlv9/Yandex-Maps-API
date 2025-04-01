@@ -1,7 +1,7 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QLabel, QWidget,
                              QComboBox, QVBoxLayout, QLineEdit,
-                             QPushButton, QHBoxLayout)
+                         QPushButton, QHBoxLayout, QCheckBox)
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import Qt
 from config import MIN_SPN, MAX_SPN, MIN_LON, MAX_LON, MIN_LAT, MAX_LAT, MOVE_STEP
@@ -17,6 +17,7 @@ class MapApp(QWidget):
         self.theme = "light"
         self.marker_coords = None
         self.current_address = None
+        self.postal_code = True
         self.map_api = YandexMapAPI(API_KEY_STATIC)
         self.geocode_api = GeocoderAPI(API_KEY_GEOCODER)
         self.init_ui()
@@ -40,6 +41,10 @@ class MapApp(QWidget):
         self.remove_search_button = QPushButton("Сброс поиска")
         self.remove_search_button.clicked.connect(self.clear_marker)
 
+        self.postcode_checkbox = QCheckBox("Показывать почтовый индекс")
+        self.postcode_checkbox.setChecked(True)
+        self.postcode_checkbox.stateChanged.connect(self.change_postal_code_status)
+
         search_layout = QHBoxLayout()
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.search_button)
@@ -54,6 +59,7 @@ class MapApp(QWidget):
         layout.addWidget(self.theme_box)
         layout.addLayout(search_layout)
         layout.addWidget(self.label)
+        layout.addWidget(self.postcode_checkbox)
         layout.addWidget(self.address_label)
         self.setLayout(layout)
 
@@ -65,6 +71,11 @@ class MapApp(QWidget):
         self.address_label.setText('')
         self.update_map()
 
+    def change_postal_code_status(self):
+        self.postal_code = not self.postal_code
+        if self.search_input.text():
+            self.search_location()
+
     def change_theme(self, theme):
         self.theme = 'light' if theme == 'Светлая' else 'dark'
         self.update_map()
@@ -72,12 +83,15 @@ class MapApp(QWidget):
     def search_location(self):
         search_text = self.search_input.text()
         if search_text:
-            lon, lat, sizes, address = self.geocode_api.get_info(search_text)
+            lon, lat, sizes, address, postal_code = self.geocode_api.get_info(search_text)
             self.lonlat = [lon, lat]
             self.spn = sizes
             self.marker_coords = [lon, lat]
             self.current_address = address
-            self.address_label.setText(f"Адрес: {address}")
+            if self.postal_code:
+                self.address_label.setText(f"Адрес: {address}; Почтовый индекс: {postal_code}")
+            else:
+                self.address_label.setText(f"Адрес: {address}")
             map_data = self.map_api.get_map(
                 spn=sizes,
                 theme=self.theme,
