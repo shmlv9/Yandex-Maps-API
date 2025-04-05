@@ -69,6 +69,7 @@ class MapApp(QWidget):
         self.marker_coords = None
         self.current_address = None
         self.address_label.setText('')
+        self.search_input.setText('')
         self.update_map()
 
     def change_postal_code_status(self):
@@ -98,6 +99,20 @@ class MapApp(QWidget):
                 pt=f"{self.marker_coords[0]},{self.marker_coords[1]},vkbkm" if self.marker_coords else None,
                 mode='search')
             self.show_map(map_data)
+        else:
+            lon, lat, sizes, address, postal_code = self.geocode_api.get_info(','.join(map(str, self.lonlat)))
+            self.marker_coords = [lon, lat]
+            self.current_address = address
+            if self.postal_code:
+                self.address_label.setText(f"Адрес: {address}; Почтовый индекс: {postal_code}")
+            else:
+                self.address_label.setText(f"Адрес: {address}")
+            map_data = self.map_api.get_map(
+                lonlat=self.lonlat,
+                spn=self.spn,
+                theme=self.theme,
+                pt=f"{self.marker_coords[0]},{self.marker_coords[1]},vkbkm" if self.marker_coords else None,)
+            self.show_map(map_data)
 
     def update_map(self):
         pt_param = f"{self.marker_coords[0]},{self.marker_coords[1]},vkbkm" if self.marker_coords else None
@@ -121,6 +136,7 @@ class MapApp(QWidget):
             if not self.search_input.geometry().contains(event.pos()):
                 self.search_input.clearFocus()
                 self.setFocus()
+            self.search_location()
 
     def keyPressEvent(self, event):
         if not self.search_input.hasFocus():
