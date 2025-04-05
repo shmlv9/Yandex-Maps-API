@@ -1,25 +1,29 @@
+import math
 import sys
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtWidgets import (QApplication, QLabel, QWidget,
                              QComboBox, QVBoxLayout, QLineEdit,
-                         QPushButton, QHBoxLayout, QCheckBox)
-from PyQt6.QtGui import QPixmap, QImage
-from PyQt6.QtCore import Qt
+                             QPushButton, QHBoxLayout, QCheckBox)
+
+from apikey import API_KEY_STATIC, API_KEY_GEOCODER, API_KEY_ORGANIZATIONS
 from config import MIN_SPN, MAX_SPN, MIN_LON, MAX_LON, MIN_LAT, MAX_LAT, MOVE_STEP
-from map_api import YandexMapAPI, GeocoderAPI
-from apikey import API_KEY_STATIC, API_KEY_GEOCODER
+from map_api import YandexMapAPI, GeocoderAPI, SearchOrganizations
 
 
 class MapApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.spn = [5, 5]
-        self.lonlat = [30, 60]
+        self.spn = [0.2, 0.2]
+        self.lonlat = [30.3, 60]
         self.theme = "light"
         self.marker_coords = None
         self.current_address = None
         self.postal_code = True
         self.map_api = YandexMapAPI(API_KEY_STATIC)
         self.geocode_api = GeocoderAPI(API_KEY_GEOCODER)
+        self.organizations_api = SearchOrganizations(API_KEY_ORGANIZATIONS)
         self.init_ui()
 
     def init_ui(self):
@@ -52,6 +56,7 @@ class MapApp(QWidget):
 
         self.label = QLabel()
         self.label.setFixedSize(600, 450)
+        self.label.mousePressEvent = self.label_mouse_press_event
 
         self.address_label = QLabel()
 
@@ -64,6 +69,59 @@ class MapApp(QWidget):
         self.setLayout(layout)
 
         self.update_map()
+
+    def label_mouse_press_event(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            if not self.search_input.geometry().contains(event.pos()):
+                self.search_input.clearFocus()
+                self.setFocus()
+            self.search_location()
+        elif event.button() == Qt.MouseButton.RightButton:
+            x = event.pos().x()
+            y = event.pos().y()
+
+            lon, lat = self.pixel_to_geo(x, y)
+
+            lon, lat, _, address, _ = self.geocode_api.get_info(','.join(map(str, [lon, lat])))
+            self.find_organization(lon, lat, address)
+
+    def pixel_to_geo(self, x, y):
+        map_width = self.label.width()
+        map_height = self.label.height()
+
+        center_lon, center_lat = self.lonlat
+        spn_lon, spn_lat = self.spn
+
+        lon = center_lon + (x - map_width / 2) * (spn_lon / map_width)
+        lat = center_lat - (y - map_height / 2) * (spn_lat / map_height)
+
+        lon = max(MIN_LON, min(MAX_LON, lon))
+        lat = max(MIN_LAT, min(MAX_LAT, lat))
+
+        return lon, lat
+
+    def find_organization(self, lon, lat, address):
+        name, address, org_lon, org_lat = self.organizations_api.find_organization(address)
+        if name and self.lonlat_distance((lon, lat), (org_lon, org_lat)) <= 50:
+            self.address_label.setText(f'Ближайшая организация: {name}, {address}')
+            self.marker_coords = [org_lon, org_lat]
+            self.update_map()
+
+    def lonlat_distance(self, a, b):
+
+        degree_to_meters_factor = 111 * 1000
+        a_lon, a_lat = a
+        b_lon, b_lat = b
+
+        radians_lattitude = math.radians((a_lat + b_lat) / 2.)
+        lat_lon_factor = math.cos(radians_lattitude)
+
+        dx = abs(a_lon - b_lon) * degree_to_meters_factor * lat_lon_factor
+        dy = abs(a_lat - b_lat) * degree_to_meters_factor
+
+        distance = math.sqrt(dx * dx + dy * dy)
+
+        return distance
 
     def clear_marker(self):
         self.marker_coords = None
@@ -111,7 +169,7 @@ class MapApp(QWidget):
                 lonlat=self.lonlat,
                 spn=self.spn,
                 theme=self.theme,
-                pt=f"{self.marker_coords[0]},{self.marker_coords[1]},vkbkm" if self.marker_coords else None,)
+                pt=f"{self.marker_coords[0]},{self.marker_coords[1]},vkbkm" if self.marker_coords else None, )
             self.show_map(map_data)
 
     def update_map(self):
@@ -136,7 +194,6 @@ class MapApp(QWidget):
             if not self.search_input.geometry().contains(event.pos()):
                 self.search_input.clearFocus()
                 self.setFocus()
-            self.search_location()
 
     def keyPressEvent(self, event):
         if not self.search_input.hasFocus():

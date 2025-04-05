@@ -67,3 +67,28 @@ class GeocoderAPI:
         sizes = [abs(float(coords1[0]) - float(coords2[0])), abs(float(coords1[1]) - float(coords2[1]))]
 
         return lon, lat, sizes, full_address, postal_code
+
+
+class SearchOrganizations:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = 'https://search-maps.yandex.ru/v1/'
+
+    def find_organization(self, address):
+        search_params = {
+            "apikey": self.api_key,
+            "text": address,
+            "lang": "ru_RU",
+            "type": "biz"
+        }
+        response = requests.get(self.base_url, params=search_params)
+
+        try:
+            json_response = response.json()
+            organization = json_response["features"][0]
+            org_name = organization["properties"]["CompanyMetaData"]["name"]
+            org_address = organization["properties"]["CompanyMetaData"]["address"]
+            lon, lat = organization["geometry"]["coordinates"]
+            return org_name, org_address, lon, lat
+        except Exception:
+            return None, None, None, None
